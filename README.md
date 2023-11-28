@@ -49,7 +49,21 @@ For example, to connect to a database on localhost:5432 as the user postgres wit
 
 `go run main.go -host=localhost -port=5432 -user=postgres -password=example -dbname=postgres -sslmode=disable`
 
-**Note: For connecting to a remote AWS RDS instance, you need to set -sslmode='require'
+**Note: To connect to a remote AWS RDS instance, you need to set -sslmode='require'
+**Note: If you would like to spin up a local postgres container to connect to you would need to run:
+
+`docker compose up db`
+
+Then use the run command from the example above
+
+## API
+There are 2 commands possible for running the API:
+
+Get All:
+`localhost:8080/tokens`
+
+Get By Cid:
+`localhost:8080/tokens/<cid>`
 
 ## Benchmark Tests
 The application includes two benchmark tests: BenchmarkFetchAndStoreMetadata and BenchmarkConnectToDB. These tests measure the performance of fetching and storing metadata for a list of CIDs in the database, and connecting to the database, respectively. These tests are important for understanding the performance characteristics of the application and identifying potential bottlenecks.
