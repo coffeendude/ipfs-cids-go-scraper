@@ -13,41 +13,42 @@ import (
 )
 
 func StartServer(db *sql.DB) {
-	http.HandleFunc("/tokens", func(w http.ResponseWriter, r *http.Request) {
-		handleTokensRequest(db, w, r)
+	router := http.NewServeMux()
+
+	router.HandleFunc("/tokens", func(w http.ResponseWriter, r *http.Request) {
+		handleAllTokensRequest(db, w, r)
 	})
-	http.HandleFunc("/tokens/", func(w http.ResponseWriter, r *http.Request) {
-		handleTokensRequest(db, w, r)
+	router.HandleFunc("/tokens/", func(w http.ResponseWriter, r *http.Request) {
+		handleSingleTokenRequest(db, w, r)
 	})
 
-	http.ListenAndServe(":8080", nil)
+	log.Println("Starting server on :8080")
+	err := http.ListenAndServe(":8080", router)
+	if err != nil {
+		log.Fatalf("Error starting server: %v", err)
+	}
 }
 
-func handleTokensRequest(db *sql.DB, w http.ResponseWriter, r *http.Request) {
-	log.Println("Received request:", r.Method, r.URL.Path)
-	path := strings.TrimPrefix(r.URL.Path, "/tokens")
-	if path == "" {
-		// Handle /tokens
-		log.Println("Fetching all metadata")
-		metadata, err := getAllMetadata(db)
-		if err != nil {
-			log.Println("Error fetching all metadata:", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		json.NewEncoder(w).Encode(metadata)
-
-	} else {
-		// Handle /tokens/<cid>
-		cid := strings.TrimPrefix(path, "/")
-		metadata, err := getMetadataForCID(db, cid)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		fmt.Println(cid)
-		json.NewEncoder(w).Encode(metadata)
+func handleAllTokensRequest(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+	log.Println("Fetching all metadata")
+	metadata, err := getAllMetadata(db)
+	if err != nil {
+		log.Println("Error fetching all metadata:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	json.NewEncoder(w).Encode(metadata)
+}
+
+func handleSingleTokenRequest(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+	cid := strings.TrimPrefix(r.URL.Path, "/tokens/")
+	metadata, err := getMetadataForCID(db, cid)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Println(cid)
+	json.NewEncoder(w).Encode(metadata)
 }
 
 func getAllMetadata(db *sql.DB) ([]metadata.Metadata, error) {

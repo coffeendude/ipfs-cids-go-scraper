@@ -25,7 +25,15 @@ const (
 )
 
 func main() {
-	db, err := connectToDB()
+	host := flag.String("host", "localhost", "Database host")
+	port := flag.String("port", "5432", "Database port")
+	user := flag.String("user", "postgres", "Database user")
+	password := flag.String("password", "example", "Database password")
+	dbname := flag.String("dbname", "postgres", "Database name")
+	sslmode := flag.String("sslmode", "disable", "SSL mode")
+	flag.Parse()
+
+	db, err := connectToDB(*host, *port, *user, *password, *dbname, *sslmode)
 	if err != nil {
 		log.Fatalf("Error connecting to database: %v", err)
 	}
@@ -54,16 +62,8 @@ func main() {
 	api.StartServer(db)
 }
 
-func connectToDB() (*sql.DB, error) {
-	host := flag.String("host", "localhost", "Database host")
-	port := flag.String("port", "5432", "Database port")
-	user := flag.String("user", "postgres", "Database user")
-	password := flag.String("password", "example", "Database password")
-	dbname := flag.String("dbname", "postgres", "Database name")
-	sslmode := flag.String("sslmode", "disable", "SSL mode")
-
-	flag.Parse()
-	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s", *host, *port, *user, *password, *dbname, *sslmode)
+func connectToDB(host, port, user, password, dbname, sslmode string) (*sql.DB, error) {
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s", host, port, user, password, dbname, sslmode)
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to database: %w", err)
@@ -174,7 +174,11 @@ func fetchAndParseMetadata(db *sql.DB, cid string) (*metadata.Metadata, error) {
 func storeMetadata(db *sql.DB, metadata *metadata.Metadata) error {
 	sqlStatement := `
         INSERT INTO metadata (cid, image, description, name)
-        VALUES ($1, $2, $3, $4)`
+        VALUES ($1, $2, $3, $4)
+		ON CONFLICT (cid) DO UPDATE SET
+        image = EXCLUDED.image,
+        description = EXCLUDED.description,
+        name = EXCLUDED.name`
 	_, err := db.Exec(sqlStatement, metadata.Cid, metadata.Image, metadata.Description, metadata.Name)
 	if err != nil {
 		return fmt.Errorf("error storing metadata: %w", err)

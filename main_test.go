@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"sync"
 	"testing"
 )
@@ -12,7 +13,16 @@ func BenchmarkWorkerPool(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	db, err := connectToDB()
+	// Retrieve database connection details from environment variables
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	database := os.Getenv("DB_NAME")
+	sslmode := os.Getenv("DB_SSLMODE")
+
+	// Connect to the database
+	db, err := connectToDB(host, port, user, password, database, sslmode)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -46,8 +56,16 @@ func BenchmarkWorkerPool(b *testing.B) {
 
 // go test -bench=BenchmarkFetchAndStoreMetadata
 func BenchmarkFetchAndStoreMetadata(b *testing.B) {
+	// Retrieve database connection details from environment variables
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	database := os.Getenv("DB_NAME")
+	sslmode := os.Getenv("DB_SSLMODE")
+
 	// Connect to the database
-	db, err := connectToDB()
+	db, err := connectToDB(host, port, user, password, database, sslmode)
 	if err != nil {
 		b.Fatalf("Error connecting to database: %v", err)
 	}
@@ -72,17 +90,10 @@ func BenchmarkFetchAndStoreMetadata(b *testing.B) {
 	b.ResetTimer()
 
 	// Run the operation b.N times
-	var errorCount int
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			if err := fetchAndStoreMetadata(ctx, db, cids); err != nil {
-				errorCount++
-			}
+	for i := 0; i < b.N; i++ {
+		if err := fetchAndStoreMetadata(ctx, db, cids); err != nil {
+			b.Fatalf("Error fetching and storing metadata: %v", err)
 		}
-	})
-
-	// Report errors after the benchmark
-	if errorCount > 0 {
-		b.Logf("fetchAndStoreMetadata failed %d times", errorCount)
 	}
+
 }
