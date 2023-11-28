@@ -5,12 +5,16 @@ import (
 	"database/sql"
 	"encoding/csv"
 	"encoding/json"
+	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"sync"
+
+	"github.com/coffeendude/ipfs-cids-go-scraper/api"
+	"github.com/coffeendude/ipfs-cids-go-scraper/metadata"
 
 	_ "github.com/lib/pq"
 )
@@ -19,13 +23,6 @@ const (
 	NumWorkers  = 10
 	CIDFilePath = "ipfs_cids.csv"
 )
-
-type Metadata struct {
-	Cid         string `json:"cid"`
-	Image       string `json:"image"`
-	Description string `json:"description"`
-	Name        string `json:"name"`
-}
 
 func main() {
 	db, err := connectToDB()
@@ -54,11 +51,19 @@ func main() {
 		log.Fatalf("Error printing metadata: %v", err)
 	}
 
-	startServer(db)
+	api.StartServer(db)
 }
 
 func connectToDB() (*sql.DB, error) {
-	connStr := "host=localhost port=5432 user=postgres password=example dbname=postgres sslmode=disable"
+	host := flag.String("host", "localhost", "Database host")
+	port := flag.String("port", "5432", "Database port")
+	user := flag.String("user", "postgres", "Database user")
+	password := flag.String("password", "example", "Database password")
+	dbname := flag.String("dbname", "postgres", "Database name")
+	sslmode := flag.String("sslmode", "disable", "SSL mode")
+
+	flag.Parse()
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s", *host, *port, *user, *password, *dbname, *sslmode)
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to database: %w", err)
@@ -137,7 +142,7 @@ func worker(ctx context.Context, db *sql.DB, cidChan <-chan string, wg *sync.Wai
 	}
 }
 
-func fetchAndParseMetadata(db *sql.DB, cid string) (*Metadata, error) {
+func fetchAndParseMetadata(db *sql.DB, cid string) (*metadata.Metadata, error) {
 	url := fmt.Sprintf("https://ipfs.io/ipfs/%s", cid)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -145,12 +150,12 @@ func fetchAndParseMetadata(db *sql.DB, cid string) (*Metadata, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error reading response for CID %s: %w", cid, err)
 	}
 
-	var metadata Metadata
+	var metadata metadata.Metadata
 	if !json.Valid(body) {
 		return nil, fmt.Errorf("invalid JSON for CID %s: %s", cid, string(body))
 	}
@@ -166,7 +171,7 @@ func fetchAndParseMetadata(db *sql.DB, cid string) (*Metadata, error) {
 	return &metadata, nil
 }
 
-func storeMetadata(db *sql.DB, metadata *Metadata) error {
+func storeMetadata(db *sql.DB, metadata *metadata.Metadata) error {
 	sqlStatement := `
         INSERT INTO metadata (cid, image, description, name)
         VALUES ($1, $2, $3, $4)`
