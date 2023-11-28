@@ -50,6 +50,7 @@ For example, to connect to a database on localhost:5432 as the user postgres wit
 `go run main.go -host=localhost -port=5432 -user=postgres -password=example -dbname=postgres -sslmode=disable`
 
 **Note: To connect to a remote AWS RDS instance, you need to set -sslmode='require'
+
 **Note: If you would like to spin up a local postgres container to connect to you would need to run:
 
 `docker compose up db`
